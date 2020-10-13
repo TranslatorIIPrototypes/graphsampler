@@ -2,7 +2,6 @@ import sys
 import random
 import json
 from neo_interface import neo
-#from degrader import degrader
 from counter import counter
 
 crummy_nodes = set([
@@ -83,27 +82,6 @@ def build_stoch_nodes(atype,btype,connected,npairs=100000):
             ndone += 1
             if ndone >= npairs:
                 break
-
-
-def build_stoch(npairs=1000000):
-    with open('conn.json','r') as inf:
-        conn_data = json.load(inf)
-    n = neo(conn_data['neouri'],conn_data['neouser'],conn_data['neopass'])
-    allnodes = n.get_interesting_nodes()
-    print(len(allnodes))
-    filternodes(allnodes)
-    print(len(allnodes))
-    c = counter(n)
-    for pcount in range(npairs):
-        ab = random.sample(allnodes.keys(),k=2)
-        a_label=allnodes[ab[0]]
-        b_label=allnodes[ab[1]]
-        #ab = ['CHEBI:45906','MONDO:0002367']
-        #a_label = 'chemical_substance'
-        #b_label = 'disease'
-        print(ab)
-        nodes,edges = n.get_neighborhood_and_directs(ab,a_label,b_label,crummy_nodes,degree=1)
-        c.count(ab,nodes,edges,a_label,b_label)
 
 def filternodes(in_nodes):
     for c in crummy_nodes:
