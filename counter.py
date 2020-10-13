@@ -1,4 +1,4 @@
-from math import comb
+#from math import comb
 from itertools import combinations
 import networkx
 import json
@@ -42,9 +42,9 @@ class counter:
             graph.add_node(originals[1],label=f'{b_label}_input')
             self.write(graph,dedges,originals[0],a_label,originals[1],b_label)
             return
-        numcombs = comb(len(fnodes),querysize)
+        #numcombs = comb(len(fnodes),querysize)
         print('Number of new nodes:', len(fnodes))
-        print('Number of possible combinations:', numcombs)
+        #print('Number of possible combinations:', numcombs)
         wrote = False
         n= 0
         bum = 0
@@ -64,13 +64,13 @@ class counter:
         n3 = len(pathbylength[3])
         n2 = len(pathbylength[2])
         n1 = len(pathbylength[1])
-        realcombs = n3 + comb(n2, 2) + n2*n1 + comb(n1,3)
-        print('Number of actual combinations:', realcombs)
-        print(n3,comb(n2,2),n2*n1,comb(n1,3))
+        #realcombs = n3 + comb(n2, 2) + n2*n1 + comb(n1,3)
+        #print('Number of actual combinations:', realcombs)
+        #print(n3,comb(n2,2),n2*n1,comb(n1,3))
         indy_nodes = group_paths(pathbylength[3],pathbylength[2],pathbylength[1],newnodes,newedges,originals[0],originals[1])
         print('numbcomb:',len(indy_nodes))
         #now these are all the actual, independent sets of 3 nodes that we need to make graphs out of.
-        numcombs = comb(len(fnodes),querysize)
+        #numcombs = comb(len(fnodes),querysize)
         edgemap = { (x,y):(x,y,z) for x,y,z in newedges }
         edgemap2 = { (y,x):(x,y,z) for x,y,z in newedges }
         edgemap.update(edgemap2)
