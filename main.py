@@ -2,7 +2,7 @@ import sys
 import random
 import json
 from neo_interface import neo
-from degrader import degrader
+#from degrader import degrader
 from counter import counter
 
 crummy_nodes = set([
