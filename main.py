@@ -51,34 +51,38 @@ crummy_nodes = set([
     "CHEBI:78616", #carbohydrates and carbohydrate derivatives
     ] )
 
-def run(source_label,edge_type,target_label,neouri,neouser,neopass):
-    n = neo(neouri,neouser,neopass)
-    pairs = n.get_pairs(source_label,edge_type,target_label,maxpairs=100)
-    print(len(pairs))
-    d = degrader(n)
-    for pair in pairs:
-        nodes,edges = n.get_neighborhood(source_label,target_label,pair,degree=1)
-        print(len(nodes))
-        print(len(edges))
-        d.degrade(nodes,edges,edge_type,pair)
-
-def build_stoch_nodes(neouri,neouser,neopass,atype,btype,connected,npairs=100000):
-    n = neo(neouri,neouser,neopass)
-    allnodes = n.get_interesting_nodes(atype,btype,connected)
-    print(len(allnodes))
-    filternodes(allnodes)
-    print(len(allnodes))
+def build_stoch_nodes(atype,btype,connected,npairs=100000):
+    with open('conn.json','r') as inf:
+        conn_data = json.load(inf)
+    n = neo(conn_data['neouri'],conn_data['neouser'],conn_data['neopass'])
     c = counter(n)
-    for pcount in range(npairs):
-        ab = random.sample(allnodes.keys(),k=2)
-        a_label=allnodes[ab[0]]
-        b_label=allnodes[ab[1]]
-        #ab = ['CHEBI:45906','MONDO:0002367']
-        #a_label = 'chemical_substance'
-        #b_label = 'disease'
-        print(ab)
-        nodes,edges = n.get_neighborhood_and_directs(ab,a_label,b_label,crummy_nodes,degree=1)
-        c.count(ab,nodes,edges,a_label,b_label)
+    if not connected:
+        a_nodes = n.get_interesting_nodes_by_type(atype)
+        filternodes(a_nodes)
+        if atype == btype:
+            b_nodes = a_nodes
+        else:
+            b_nodes = n.get_interesting_nodes_by_type(btype)
+        filternodes(b_nodes)
+        ak = list(a_nodes.keys())
+        bk = list(b_nodes.keys())
+        for pcount in range(npairs):
+            a = random.choice(ak)
+            b = random.choice(bk)
+            nodes,edges = n.get_neighborhood_and_directs((a,b),atype,btype,crummy_nodes,degree=1)
+            c.count((a,b),nodes,edges,atype,btype)
+    else:
+        #get all the pairs, even if we don't want to run them all
+        allpairs = n.get_pairs(atype,btype)
+        random.shuffle(allpairs)
+        ndone = 0
+        print('npairs:',len(allpairs))
+        for ab in allpairs:
+            nodes, edges = n.get_neighborhood_and_directs(ab, atype, btype, crummy_nodes, degree=1)
+            c.count(ab, nodes, edges, atype, btype)
+            ndone += 1
+            if ndone >= npairs:
+                break
 
 
 def build_stoch(npairs=1000000):
@@ -107,5 +111,5 @@ def filternodes(in_nodes):
             in_nodes.pop(c)
 
 if __name__ == '__main__':
-    build_stoch('gene','disease',True)
+    build_stoch_nodes('gene','disease',True,npairs=1)
 

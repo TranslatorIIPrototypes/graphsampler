@@ -7,11 +7,9 @@ class neo():
         else:
             self.driver = GraphDatabase.driver(uri, auth=(user,pw))
 
-    def get_pairs(self,sourcelabel,edgetype,targetlabel,maxpairs=0):
+    def get_pairs(self,sourcelabel,targetlabel,maxpairs=0):
         with self.driver.session() as session:
-            friends = session.read_transaction(query_pairs, sourcelabel,edgetype,targetlabel,maxpairs)
-            for friend in friends:
-                print(friend)
+            friends = session.read_transaction(query_pairs, sourcelabel,targetlabel,maxpairs)
         return friends
 
     def get_neighborhood(self,a_label,b_label,ids,degree=1):
@@ -52,14 +50,23 @@ class neo():
             nodes = session.read_transaction(get_interesting_nodes)
         return nodes
 
+    def get_interesting_nodes_by_type(self,type):
+        with self.driver.session() as session:
+            nodes = session.read_transaction(get_interesting_nodes_by_type,type)
+        return nodes
+
+
 def ex(tx,cypher):
     result = tx.run(cypher)
     for record in result:
         return record
 
-def query_pairs(tx, sourcelabel, edgetype, targetlabel, maxpairs=0):
+def query_pairs(tx, sourcelabel, targetlabel, maxpairs=0):
     pairs = []
-    q = f"MATCH (a:{sourcelabel})-[:{edgetype}]->(b:{targetlabel}) RETURN a.id, b.id"
+    q = f"MATCH (a:{sourcelabel})--(b:{targetlabel})" \
+         "where not a:Concept and not a.id starts with 'UniProt' " \
+         "and not b:Concept and not b.id starts with 'UniProt' " \
+         "RETURN a.id, b.id"
     if maxpairs > 0:
         q += f' LIMIT {maxpairs}'
     result = tx.run(q)
@@ -81,6 +88,19 @@ def get_interesting_nodes(tx):
     nodes = { r['n.id']:picklabel(r['labels(n)']) for r in result }
     nodes = { a:b for a,b in nodes.items() if b != 'named_thing'}
     return nodes
+
+def get_interesting_nodes_by_type(tx,type):
+    ###  Depends on what we want.  ATM, we have a bunch of viral proteomes that don't link to much else, so not interested
+    ### also a bunch of variants that I might be interested in, but not in establishing relations to other entities.j
+    q = f'MATCH (n:{type}) where not n:Concept ' \
+        'and not n.id starts with "UniProt" ' \
+        'and size((n)-[]-()) > 0 ' \
+        'RETURN n.id, labels(n)'
+    result = tx.run(q)
+    nodes = { r['n.id']:picklabel(r['labels(n)']) for r in result }
+    nodes = { a:b for a,b in nodes.items() if b != 'named_thing'}
+    return nodes
+
 
 def get_hops(tx, source_label, source_id, target_label, target_id, inodecount):
     q = f'match p=(a:{source_label} {{id:"{source_id}"}})--'
