@@ -1,4 +1,5 @@
 import sys
+import argparse
 import random
 import json
 from neo_interface import neo
@@ -50,11 +51,11 @@ crummy_nodes = set([
     "CHEBI:78616", #carbohydrates and carbohydrate derivatives
     ] )
 
-def build_stoch_nodes(atype,btype,connected,npairs=100000):
+def build_stoch_nodes(atype,btype,connected,npairs,outprefix):
     with open('conn.json','r') as inf:
         conn_data = json.load(inf)
     n = neo(conn_data['neouri'],conn_data['neouser'],conn_data['neopass'])
-    c = counter(n)
+    c = counter(n,outprefix)
     if not connected:
         a_nodes = n.get_interesting_nodes_by_type(atype)
         filternodes(a_nodes)
@@ -89,5 +90,20 @@ def filternodes(in_nodes):
             in_nodes.pop(c)
 
 if __name__ == '__main__':
-    build_stoch_nodes('gene','disease',True,npairs=1)
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-a', action='store', dest='a_type',
+                        help='Node Type A')
+    parser.add_argument('-b', action='store', dest='b_type',
+                        help='Node Type B')
+    parser.add_argument('-c', action='store_true', dest='connected',
+                        default=False,
+                        help='Pull connected nodes')
+    parser.add_argument('-n', action='store', type=int,
+                        dest='numpairs',
+                        help='Number of pairs to pull')
+    parser.add_argument('-o', action='store',
+                        dest='output_prefix',
+                        help='prefix for output files')
 
+    results = parser.parse_args()
+    build_stoch_nodes(results.a_type, results.b_type, results.connected, results.numpairs, results.output_prefix)

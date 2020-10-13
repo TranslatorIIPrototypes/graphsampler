@@ -5,11 +5,11 @@ import json
 from collections import defaultdict
 
 class counter:
-    def __init__(self,n):
+    def __init__(self,n,p):
         self.neo = n
         self.written = set()
-        self.graphs_output = open('graphs','w')
-        self.counts_output = open('counts','w')
+        self.graphs_output = open(f'{p}.graphs','w')
+        self.counts_output = open(f'{p}.counts','w')
         pass
 
     def __del__(self):
