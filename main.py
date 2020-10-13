@@ -1,5 +1,6 @@
 import sys
 import random
+import json
 from neo_interface import neo
 from degrader import degrader
 from counter import counter
@@ -61,8 +62,29 @@ def run(source_label,edge_type,target_label,neouri,neouser,neopass):
         print(len(edges))
         d.degrade(nodes,edges,edge_type,pair)
 
-def build_stoch(neouri,neouser,neopass,npairs=1000000):
+def build_stoch_nodes(neouri,neouser,neopass,atype,btype,connected,npairs=100000):
     n = neo(neouri,neouser,neopass)
+    allnodes = n.get_interesting_nodes(atype,btype,connected)
+    print(len(allnodes))
+    filternodes(allnodes)
+    print(len(allnodes))
+    c = counter(n)
+    for pcount in range(npairs):
+        ab = random.sample(allnodes.keys(),k=2)
+        a_label=allnodes[ab[0]]
+        b_label=allnodes[ab[1]]
+        #ab = ['CHEBI:45906','MONDO:0002367']
+        #a_label = 'chemical_substance'
+        #b_label = 'disease'
+        print(ab)
+        nodes,edges = n.get_neighborhood_and_directs(ab,a_label,b_label,crummy_nodes,degree=1)
+        c.count(ab,nodes,edges,a_label,b_label)
+
+
+def build_stoch(npairs=1000000):
+    with open('conn.json','r') as inf:
+        conn_data = json.load(inf)
+    n = neo(conn_data['neouri'],conn_data['neouser'],conn_data['neopass'])
     allnodes = n.get_interesting_nodes()
     print(len(allnodes))
     filternodes(allnodes)
@@ -85,13 +107,5 @@ def filternodes(in_nodes):
             in_nodes.pop(c)
 
 if __name__ == '__main__':
-    #neouri = sys.argv[1]
-    #neouser = sys.argv[2]
-    #neopass = sys.argv[3]
-    neouri = "***REMOVED***"
-    neouser="neo4j"
-    neopass="***REMOVED***"
-    #run('chemical_substance','treats','disease',neouri,neouser,neopass,[])
-    #run('gene','gene_associated_with_condition','disease',neouri,neouser,neopass)
-    build_stoch(neouri,neouser,neopass)
+    build_stoch('gene','disease',True)
 
