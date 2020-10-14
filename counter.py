@@ -44,6 +44,9 @@ class counter:
             return
         #numcombs = comb(len(fnodes),querysize)
         print('Number of new nodes:', len(fnodes))
+        if len(fnodes) > 10000:
+            print('Too many, skipping')
+            continue
         #print('Number of possible combinations:', numcombs)
         wrote = False
         n= 0
