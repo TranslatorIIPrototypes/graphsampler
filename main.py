@@ -64,6 +64,7 @@ def build_stoch_nodes(atype,btype,connected,npairs,outprefix):
         else:
             b_nodes = n.get_interesting_nodes_by_type(btype)
         filternodes(b_nodes)
+        print("node counts:", len(a_nodes), len(b_nodes))
         ak = list(a_nodes.keys())
         bk = list(b_nodes.keys())
         for pcount in range(npairs):
