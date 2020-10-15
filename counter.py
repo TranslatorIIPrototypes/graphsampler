@@ -80,6 +80,9 @@ class counter:
             nedges = []
             for i in range(5):
                 for j in range(i,5):
+                    #Don't include direct edges
+                    if (i == 0) and (j==4):
+                        continue
                     xy = (al[i],al[j])
                     if xy in edgemap:
                         nedges.append(edgemap[xy])
@@ -395,7 +398,7 @@ def makegraph(nodes,edges,ids,alabel,blabel):
     for nid, nl in nodes.items():
         ngraph.nodes[nid]['label'] = nl
     ngraph.nodes[ids[0]]['label'] = f'input_{alabel}'
-    ngraph.nodes[ids[1]]['label'] = f'input_{alabel}'
+    ngraph.nodes[ids[1]]['label'] = f'input_{blabel}'
     return ngraph
 
 def compact_graph(g):
