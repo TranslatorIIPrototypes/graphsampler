@@ -1,15 +1,22 @@
 import argparse
+import ast
 import os
 import json
+import numpy as npy
 from collections import defaultdict
+import pandas as pd
 
 def analyze(indir):
     files = os.listdir(indir)
     graphcounts = defaultdict( lambda: defaultdict(set) )
     predcounts = defaultdict( set )
+    upairs = set()
+    cpairs = set()
+    n = 0
     for f in files:
         if f.endswith('counts'):
-            print(f, len(graphcounts))
+            n += 1
+            print(n)
             with open(f'{indir}/{f}') as inf:
                 for line in inf:
                     x = line[:-1].split('\t')
@@ -24,19 +31,21 @@ def analyze(indir):
                     if (ab == '') and (ba == ''):
                         graphcounts[graph]["none"].add(nids)
                         predcounts["none"].add(nids)
+                        upairs.add(nids)
                     if not ab == '':
                         graphcounts[graph][ab+"->"].add(nids)
                         predcounts[ab+"->"].add(nids)
+                        cpairs.add(nids)
                     if not ba == '':
                         graphcounts[graph][ba+"<-"].add(nids)
                         predcounts[ba+"<-"].add(nids)
+                        cpairs.add(nids)
+    print("Unconnected Pairs",len(upairs))
+    print("Connected Pairs",len(cpairs))
     gc = {}
     for g,pc in graphcounts.items():
         if g not in gc:
             gc[g] = {}
-        if len(pc) > 1:
-            if 'none' in pc:
-                print(list(pc.keys()))
         for p in pc:
             gc[g][p] = len(graphcounts[g][p])
     pc = {}
@@ -50,19 +59,136 @@ def analyze(indir):
 def examine(indir):
     with open(f'{indir}/aggregated.json','r') as inf:
         r = json.load(inf)
-    gc = []
+    gc = defaultdict(list)
     for g in r:
-        n = 0
+        n_none = 0
+        n_some = 0
         for p,np in r[g].items():
-            if (len(r[g]) == 1) and p == 'none':
-                continue
-            n += np
-        if n > 0:
-            gc.append( (n,g) )
-    gc.sort()
-    print(gc[:5])
-    print('---')
-    print(gc[-5:])
+            if p == 'none':
+                n_none += np
+            else:
+                n_some += np
+        k = (n_some,-n_none)
+        gc[k].append(g)
+    points = npy.array(list(gc.keys()))
+    surfaces = {}
+    for ps in range(5):
+        eps= is_pareto_efficient(points,return_mask = False)
+        #surfaces.append( set([ frozenset(points[ep]) for ep in eps]) )
+        for ep in eps:
+            surfaces[ (frozenset(points[ep])) ] = ps+1
+        points = npy.delete(points, eps, axis=0)
+    with open(f'{indir}/pareto.txt','w') as outf:
+        outf.write('n_connected\tn_unconnected\tgraphs\tPareto\n')
+        for p,gs in gc.items():
+            outf.write(f'{p[0]}\t{p[1]}\t{gs}\t')
+            if frozenset(p) in surfaces:
+                outf.write(f'{surfaces[frozenset(p)]}\n')
+            else:
+                outf.write('0\n')
+    #for ep in eps:
+    #    print(ep)
+    #    print(gc[tuple(ep)])
+
+def draw(indir):
+    graphs_hashes = set()
+    gres = []
+    with open(f'{indir}/pareto.txt','r') as inf:
+        h = inf.readline()
+        for line in inf:
+            x = line.strip().split('\t')
+            surface = int(x[-1])
+            if surface > 0:
+                nc = int(x[0])
+                nu = int(x[1])
+                gs = ast.literal_eval(x[2])
+                for g in gs:
+                    gres.append( (surface,nc,nu,g) )
+                    graphs_hashes.add(g)
+    gres.sort()
+    #Have to dig through everything to find these bozos
+    files = os.listdir(indir)
+    graphs = {}
+    for f in files:
+        if f.startswith('connected') and f.endswith('graphs'):
+            print(f)
+            with open(f'{indir}/{f}','r') as inf:
+                for line in inf:
+                    x = json.loads(line.strip())
+                    h = x['graph']['hash']
+                    if not h in graphs_hashes:
+                        continue
+                    else:
+                        graphs[h] = x
+                        graphs_hashes.remove(h)
+                        print(len(graphs_hashes))
+                        if len(graphs_hashes) == 0:
+                            break
+        if len(graphs_hashes) == 0:
+            break
+    print('done')
+    with open(f'{indir}/paretographs','w') as outf:
+        outf.write('surface\tn_connected\tn_unconnected\tgraph\n')
+        for s,n,m,g in gres:
+            trapig = convert_graph(graphs[g])
+            outf.write(f'{s}\t{n}\t{-m}\t{trapig}\n')
+
+def convert_graph(g):
+    """Takes a deserialied networkx graph and turns it into a reasonerapi query string"""
+    tg = {'nodes':[], 'edges':[]}
+    nn = 0
+    first = True
+    nodemap = {}
+    for node in g['nodes']:
+        tnode = {}
+        if node['label'].startswith('input'):
+            tnode['id'] = node['label']
+            tnode['type'] = '_'.join(node['label'].split('_')[1:])
+            prefix = node['id'].split('_')[0]
+            if first:
+                tnode['curie'] = f'{prefix}:XXXXXXX'
+            else:
+                tnode['curie'] = f'{prefix}:YYYYYYY'
+        else:
+            tnode['id'] = f'n{nn}'
+            nn += 1
+            tnode['type'] = node['label']
+        nodemap[node['id']] = tnode['id']
+        tg['nodes'].append(tnode)
+    for edgecount,edge in enumerate(g['links']):
+        tedge = {'id': f'edge_{edgecount}'}
+        tedge['source_id'] = nodemap[edge['source']]
+        tedge['target_id'] = nodemap[edge['target']]
+        tedge['type'] = edge['predicate']
+        tg['edges'].append(tedge)
+    return  json.dumps(tg)
+
+
+#Adapted from: https://stackoverflow.com/questions/32791911/fast-calculation-of-pareto-front-in-python
+def is_pareto_efficient(costs, return_mask = True):
+    """
+    Find the pareto-efficient points
+    :param costs: An (n_points, n_costs) array
+    :param return_mask: True to return a mask
+    :return: An array of indices of pareto-efficient points.
+        If return_mask is True, this will be an (n_points, ) boolean array
+        Otherwise it will be a (n_efficient_points, ) integer array of indices.
+    """
+    is_efficient = npy.arange(costs.shape[0])
+    n_points = costs.shape[0]
+    next_point_index = 0  # Next index in the is_efficient array to search for
+    while next_point_index<len(costs):
+        nondominated_point_mask = npy.any(costs>costs[next_point_index], axis=1)
+        nondominated_point_mask[next_point_index] = True
+        is_efficient = is_efficient[nondominated_point_mask]  # Remove dominated points
+        costs = costs[nondominated_point_mask]
+        next_point_index = npy.sum(nondominated_point_mask[:next_point_index])+1
+    if return_mask:
+        is_efficient_mask = npy.zeros(n_points, dtype = bool)
+        is_efficient_mask[is_efficient] = True
+        return is_efficient_mask
+    else:
+        return is_efficient
 
 
 if __name__ == '__main__':
@@ -71,4 +197,5 @@ if __name__ == '__main__':
     results = parser.parse_args()
     #analyze(results.input_directory)
     #analyze('gene_disease')
-    examine('gene_disease')
+    #examine('gene_disease')
+    draw('gene_disease')

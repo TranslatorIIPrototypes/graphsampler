@@ -4,16 +4,31 @@ import networkx
 import json
 from collections import defaultdict
 
-class counter:
-    def __init__(self,n,p):
-        self.neo = n
-        self.written = set()
+class writer:
+    """Wrapping the files to make it easy to mock for testing"""
+    def __init__(self,p):
         self.graphs_output = open(f'{p}.graphs','w')
         self.counts_output = open(f'{p}.counts','w')
-        pass
-
+        
+    def write_graph(self,graph):
+        self.graphs_output.write(json.dumps(networkx.json_graph.node_link_data(graph)))
+        self.graphs_output.write('\n')
+        
+    def write_counts(self,s):
+        self.counts_output()
+        
     def __del__(self):
         self.graphs_output.close()
+        self.counts_output.close()
+
+class counter:
+    def __init__(self,n,w):
+        self.neo = n
+        self.written = set()
+        self.writer = w
+        #self.graphs_output = open(f'{p}.graphs','w')
+        #self.counts_output = open(f'{p}.counts','w')
+        pass
 
     def count(self,end_ids,nodes,edges,a_label,b_label,querysize=3):
         #the nodes and edges are curies.  I want to use those as the node identifiers in cypher, but I can't
@@ -97,21 +112,21 @@ class counter:
                 bum += 1
             n += 1
         if not wrote:
-            print('no good ones')
-            #write empty?
+            #Write an empty
+            graph = networkx.DiGraph()
+            graph.add_node(originals[0], label=f'{a_label}_input')
+            graph.add_node(originals[1], label=f'{b_label}_input')
+            self.write(graph, dedges, originals[0], a_label, originals[1], b_label)
 
     def write(self,graph,directs,nodea,labela,nodeb,labelb):
-        #for edge in graph.edges(data=True):
-        #    print(edge)
         hash = networkx.weisfeiler_lehman_graph_hash(graph, edge_attr='predicate', node_attr='label', iterations=3, digest_size=16)
         graph.graph['hash'] = hash
         if hash not in self.written:
-            self.graphs_output.write(json.dumps(networkx.json_graph.node_link_data(graph)))
-            self.graphs_output.write('\n')
+            self.writer.write_graph(graph)
             self.written.add(hash)
         ab = ','.join([ z['predicate'] for x,y,z in directs if ((x==nodea) and (y==nodeb))])
         ba = ','.join([ z['predicate'] for x,y,z in directs if ((x==nodeb) and (y==nodea))])
-        self.counts_output.write(f'{hash}\t{nodea}\t{labela}\t{nodeb}\t{labelb}\t{ab}\t{ba}\n')
+        self.writer.write_counts(f'{hash}\t{nodea}\t{labela}\t{nodeb}\t{labelb}\t{ab}\t{ba}\n')
 
 def group_paths(n3,n2,n1,nodes,edges,snode,tnode):
     """Just iterating over all possible 3 nodes is too much.  So now we have these paths, but even just iterating

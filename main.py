@@ -3,7 +3,7 @@ import argparse
 import random
 import json
 from neo_interface import neo
-from counter import counter
+from counter import counter,writer
 
 crummy_nodes = set([
     "CHEBI:5686",   # heterocyclic compound
@@ -55,7 +55,8 @@ def build_stoch_nodes(atype,btype,connected,npairs,outprefix):
     with open('conn.json','r') as inf:
         conn_data = json.load(inf)
     n = neo(conn_data['neouri'],conn_data['neouser'],conn_data['neopass'])
-    c = counter(n,outprefix)
+    w = writer(outprefix)
+    c = counter(n,w)
     if not connected:
         a_nodes = n.get_interesting_nodes_by_type(atype)
         filternodes(a_nodes)
