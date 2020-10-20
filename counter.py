@@ -22,15 +22,22 @@ class writer:
         self.counts_output.close()
 
 class counter:
-    def __init__(self,n,w):
-        self.neo = n
+    def __init__(self,w):
         self.written = set()
         self.writer = w
         #self.graphs_output = open(f'{p}.graphs','w')
         #self.counts_output = open(f'{p}.counts','w')
         pass
 
-    def count(self,end_ids,nodes,edges,a_label,b_label,querysize=3):
+    def count(self,end_ids,nodes,edges,querysize=3):
+        """
+        nodes is a dict of all nodes in the graph to their single type.  It includes the end_ids
+        end_ids is an iterable with two curies marking the input nodes to the graph
+        edges is a list of edge tuples (node_id, node_id, {'predicate': xxxx} )
+        querysize is the number of nodes in the query graph. This only works for 3 atm.
+        """
+        a_label = nodes[end_ids[0]]
+        b_label = nodes[end_ids[1]]
         #the nodes and edges are curies.  I want to use those as the node identifiers in cypher, but I can't
         # with the ":" in them, so let's remove them
         newnodes = { '_'.join(n.split(':')):v for n,v in nodes.items()}
@@ -46,7 +53,7 @@ class counter:
             z.sort()
             newedges.append( (x,y,{'predicate':'|'.join(z)}))
         originals = [ '_'.join(n.split(':')) for n in end_ids ]
-        sources = set( [ x[0] for x in newedges ] + [x[1] for x in newedges] )
+        #sources = set( [ x[0] for x in newedges ] + [x[1] for x in newedges] )
         print(f'Originally have {len(newnodes)}')
         fnodes = filter_nodes(newnodes,newedges,originals,querysize)
         print(f'After de-hairing have {len(fnodes)}')
@@ -73,7 +80,7 @@ class counter:
         # 1 2-path, 1 1-path
         # 2 2-paths (because of overlaps)
         # 3 1-paths
-        paths = make_paths(fnodes+originals,originals,newedges,q=querysize)
+        paths = make_paths(fnodes,originals,newedges,q=querysize)
         pathbylength=defaultdict(set)
         for path in paths:
             path.remove(originals[0])
@@ -128,8 +135,16 @@ class counter:
         ba = ','.join([ z['predicate'] for x,y,z in directs if ((x==nodeb) and (y==nodea))])
         self.writer.write_counts(f'{hash}\t{nodea}\t{labela}\t{nodeb}\t{labelb}\t{ab}\t{ba}\n')
 
+def group_paths_1_node(n1,nodes,edge,snode,tnode):
+    """
+    Finding all the 1 node paths between start and end is basically already done by the pathfinder
+    """
+
+
 def group_paths(n3,n2,n1,nodes,edges,snode,tnode):
-    """Just iterating over all possible 3 nodes is too much.  So now we have these paths, but even just iterating
+    """
+    This is a rather grubby version that works on finding all topologies that include 3 nodes.
+    Just iterating over all possible 3 nodes is too much.  So now we have these paths, but even just iterating
     over all acheivable 3-nodes is too much.  So we want to find 3-nodes that are isomorphic.   So we want to find just
     a set that are non-isomorphic"""
     #Group all the 3's
@@ -139,6 +154,8 @@ def group_paths(n3,n2,n1,nodes,edges,snode,tnode):
     used = set()
     with_three_hop=defaultdict(set)
     for a,b,c in n3:
+        if frozenset( (a,b,c) ) in used:
+            continue
         sb = sc = ac = at = bt = False
         if (b,c) in n2:
            sb = True
@@ -151,14 +168,7 @@ def group_paths(n3,n2,n1,nodes,edges,snode,tnode):
         if (a,b) in n2:
             bt = True
         topology = (sb,sc,ac,at,bt)
-        if not sb:
-            if not sc:
-                if not ac:
-                    if not at:
-                        if not bt:
-                            print(a,b,c)
-                            exit()
-        with_three_hop[topology].add((a,b,c))
+        with_three_hop[topology].add( ( a,b,c ))
         used.add( frozenset( (a,b,c) ) )
     with_two_hop_tbranch=defaultdict(set)
     with_two_hop_sbranch=defaultdict(set)
@@ -247,7 +257,7 @@ def group_by_types_1hops(triphops,nodes,edges,snode,tnode):
         pathtuple = tuple(paths)
         groups[pathtuple].add((a,b,c))
     indy_nodes = []
-    for _,nset in indy_nodes:
+    for _,nset in groups.items():
         indy_nodes.append( next(iter(nset)))
     return indy_nodes
 
@@ -436,7 +446,7 @@ def filter_nodes(internodes,edges,original_nodes,l):
     #Add all the edges into a grpah and use it to find any edges that are not on a simple path between a and b
     bgraph = networkx.Graph()
     bgraph.add_edges_from(edges)
-    remove = [node for node, degree in bgraph.degree() if degree < 2]
+    remove = [node for node, degree in bgraph.degree() if ((degree < 2) and (not node in original_nodes))]
     while len(remove) > 0:
         bgraph.remove_nodes_from(remove)
         remove = [node for node, degree in dict(bgraph.degree()).items() if degree < 2]
@@ -448,49 +458,13 @@ def filter_nodes(internodes,edges,original_nodes,l):
     for path in paths:
         keepnodes.update(path)
     print(f'second dehairing gives {len(keepnodes)}')
-    left_edges = [ (x,y,z) for x,y,z in edges if ((x in keepnodes) and (y in keepnodes))]
-    g = networkx.DiGraph()
-    g.add_edges_from(left_edges)
-    q = compact_graph(g)
-    keepnodes = [ next(iter(s)) for s in q.nodes() ]
-    print(f'quotient graph leaves {len(keepnodes)}')
-    return [ node for node in internodes if node in keepnodes ]
+    return list(keepnodes)
+    #We used to have a bit of code here that did a quotient graph.  The problem is that it would over-reduce things
+    # so if you had a simple graph of a-b-c and a-d-c and b and d had the same type, the quotient graph would remove
+    # one so you never could get the double bridge.   So it's gone, which is too bad because it did make things smaller
 
 def get_direct_edges(all_edges,ab):
     a_to_b = [(x,y,z) for x,y,z in all_edges if ((x==ab[0]) and (y==ab[1]))]
     b_to_a = [(x,y,z) for x,y,z in all_edges if ((x==ab[1]) and (y==ab[0]))]
     return a_to_b + b_to_a
 
-def node_combs(n3,n2,n1):
-    kept = set()
-    for p in n3:
-        sp = frozenset(p)
-        if sp in kept:
-            continue
-        kept.add(sp)
-        yield sp
-    for n2p in combinations(n2,2):
-        sp = frozenset( n2p[0] + n2p[1])
-        if len(sp) != 3:
-            continue
-        if sp in kept:
-            continue
-        kept.add(sp)
-        yield sp
-    for n2p in n2:
-        for n1p in n1:
-            sp = frozenset(n2p + n1p)
-            if len(sp) != 3:
-                continue
-            if sp in kept:
-                continue
-            kept.add(sp)
-            yield sp
-    for n1p in combinations(n1,3):
-        sp = frozenset( n1p[0] + n1p[1] + n1p[2])
-        if len(sp) != 3:
-            continue
-        if sp in kept:
-            continue
-        kept.add(sp)
-        yield sp

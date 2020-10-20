@@ -56,7 +56,7 @@ def build_stoch_nodes(atype,btype,connected,npairs,outprefix):
         conn_data = json.load(inf)
     n = neo(conn_data['neouri'],conn_data['neouser'],conn_data['neopass'])
     w = writer(outprefix)
-    c = counter(n,w)
+    c = counter(w)
     if not connected:
         a_nodes = n.get_interesting_nodes_by_type(atype)
         filternodes(a_nodes)
@@ -72,7 +72,7 @@ def build_stoch_nodes(atype,btype,connected,npairs,outprefix):
             a = random.choice(ak)
             b = random.choice(bk)
             nodes,edges = n.get_neighborhood_and_directs((a,b),atype,btype,crummy_nodes,degree=1)
-            c.count((a,b),nodes,edges,atype,btype)
+            c.count((a,b),nodes,edges)
     else:
         #get all the pairs, even if we don't want to run them all
         allpairs = n.get_pairs(atype,btype)
@@ -81,7 +81,7 @@ def build_stoch_nodes(atype,btype,connected,npairs,outprefix):
         print('npairs:',len(allpairs))
         for ab in allpairs:
             nodes, edges = n.get_neighborhood_and_directs(ab, atype, btype, crummy_nodes, degree=1)
-            c.count(ab, nodes, edges, atype, btype)
+            c.count(ab, nodes, edges)
             ndone += 1
             if ndone >= npairs:
                 break
