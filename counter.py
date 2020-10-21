@@ -4,6 +4,7 @@ import networkx
 import json
 from collections import defaultdict
 
+class writer:
     """Wrapping the files to make it easy to mock for testing"""
     def __init__(self,p):
         self.graphs_output = open(f'{p}.graphs','w')
