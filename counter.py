@@ -140,7 +140,7 @@ class counter:
             self.written.add(hash)
         ab = ','.join([ z['predicate'] for x,y,z in directs if ((x==nodea) and (y==nodeb))])
         ba = ','.join([ z['predicate'] for x,y,z in directs if ((x==nodeb) and (y==nodea))])
-        self.writer.write_counts(f'{hash}\t{nodea}\t{labela}\t{nodeb}\t{labelb}\t{ab}\t{ba}\n')
+        self.writer.write_counts(f'{hash}\t{nodea}\t{labela}\t{nodeb}\t{labelb}\t{ab}\t{ba}\t{len(graph.nodes)}\t{len(graph.edges)}\n')
 
 def group_paths_2nodes(n2, n1, nodes, edges, snode, tnode):
     """
