@@ -112,7 +112,7 @@ def get_hops(tx, source_label, source_id, target_label, target_id, inodecount):
     return node_ids
 
 def get_node_neighborhood(tx, source_id, source_label, nh):
-    q = f'match p = (a:{source_label} {{id:"{source_id}"}})-[*1..{nh}]-(n) where none(rel in relationships(p) WHERE type(rel) = "subclass_of") with nodes(p) as ns unwind ns as n RETURN distinct n.id, labels(n)'
+    q = f'match p = (a:{source_label} {{id:"{source_id}"}})-[*0..{nh}]-(n) where none(rel in relationships(p) WHERE type(rel) = "subclass_of") with nodes(p) as ns unwind ns as n RETURN distinct n.id, labels(n)'
     result = tx.run(q)
     node_ids = [ (r['n.id'],picklabel(r['labels(n)'])) for r in result ]
     return node_ids
