@@ -22,7 +22,7 @@ def analyze(indir):
         if f.endswith('counts'):
             n += 1
             print(n)
-            with open(f'{indir}/{f}') as inf:
+            with open(f) as inf:
                 for line in inf:
                     x = line[:-1].split('\t')
                     graph = x[0]
@@ -205,6 +205,6 @@ if __name__ == '__main__':
     parser.add_argument('-i', action='store', dest='input_directory', help='input directory')
     results = parser.parse_args()
     #analyze(results.input_directory)
-    #analyze('gene_disease')
-    #examine('gene_disease')
+    analyze('gene_disease')
+    examine('gene_disease')
     draw('gene_disease')
