@@ -14,6 +14,7 @@ class counter:
 
     def __del__(self):
         self.graphs_output.close()
+        self.counts_output.close()
 
     def count(self,end_ids,nodes,edges,a_label,b_label,querysize=3):
         #the nodes and edges are curies.  I want to use those as the node identifiers in cypher, but I can't
