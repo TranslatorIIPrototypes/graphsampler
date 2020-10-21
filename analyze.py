@@ -13,6 +13,8 @@ def analyze(indir):
     upairs = set()
     cpairs = set()
     n = 0
+    nodecount = {}
+    edgecount = {}
     for f in files:
         if f.endswith('counts'):
             n += 1
@@ -27,6 +29,8 @@ def analyze(indir):
                     btype = x[4]
                     ab = x[5]
                     ba = x[6]
+                    nodecount[graph] = int(x[7])
+                    edgecount[graph] = int(x[8])
                     nids = frozenset([aid,bid])
                     if (ab == '') and (ba == ''):
                         graphcounts[graph]["none"].add(nids)
@@ -45,9 +49,9 @@ def analyze(indir):
     gc = {}
     for g,pc in graphcounts.items():
         if g not in gc:
-            gc[g] = {}
+            gc[g] = {'predicates':{},'num_nodes': nodecount[g],'num_edges':edgecount[g] }
         for p in pc:
-            gc[g][p] = len(graphcounts[g][p])
+            gc[g]['predicates'][p] = len(graphcounts[g][p])
     pc = {}
     for p,nids in predcounts.items():
         pc[p] = len(nids)
@@ -59,36 +63,36 @@ def analyze(indir):
 def examine(indir):
     with open(f'{indir}/aggregated.json','r') as inf:
         r = json.load(inf)
-    gc = defaultdict(list)
+    gc = defaultdict(lambda: defaultdict(list))
     for g in r:
         n_none = 0
         n_some = 0
-        for p,np in r[g].items():
+        nn = r[g]['num_nodes']
+        ne = r[g]['num_edges']
+        for p,np in r[g]['predicates'].items():
             if p == 'none':
                 n_none += np
             else:
                 n_some += np
         k = (n_some,-n_none)
-        gc[k].append(g)
+        gc[k][(nn,ne)].append(g)
     points = npy.array(list(gc.keys()))
     surfaces = {}
-    for ps in range(5):
+    for ps in range(20):
         eps= is_pareto_efficient(points,return_mask = False)
         #surfaces.append( set([ frozenset(points[ep]) for ep in eps]) )
         for ep in eps:
             surfaces[ (frozenset(points[ep])) ] = ps+1
         points = npy.delete(points, eps, axis=0)
     with open(f'{indir}/pareto.txt','w') as outf:
-        outf.write('n_connected\tn_unconnected\tgraphs\tPareto\n')
-        for p,gs in gc.items():
-            outf.write(f'{p[0]}\t{p[1]}\t{gs}\t')
-            if frozenset(p) in surfaces:
-                outf.write(f'{surfaces[frozenset(p)]}\n')
-            else:
-                outf.write('0\n')
-    #for ep in eps:
-    #    print(ep)
-    #    print(gc[tuple(ep)])
+        outf.write('n_connected\tn_unconnected\tnum_nodes\tnum_edges\tgraphs\tPareto\n')
+        for p,parts in gc.items():
+            for (nn,ne),gs in parts.items():
+                outf.write(f'{p[0]}\t{p[1]}\t{nn}\t{ne}\t{gs}\t')
+                if frozenset(p) in surfaces:
+                    outf.write(f'{surfaces[frozenset(p)]}\n')
+                else:
+                    outf.write('0\n')
 
 def draw(indir):
     graphs_hashes = set()
@@ -101,9 +105,11 @@ def draw(indir):
             if surface > 0:
                 nc = int(x[0])
                 nu = int(x[1])
-                gs = ast.literal_eval(x[2])
+                numnodes=int(x[2])
+                numedges=int(x[3])
+                gs = ast.literal_eval(x[4])
                 for g in gs:
-                    gres.append( (surface,nc,nu,g) )
+                    gres.append( (surface,nc,nu,numnodes,numedges,g) )
                     graphs_hashes.add(g)
     gres.sort()
     #Have to dig through everything to find these bozos
@@ -128,10 +134,10 @@ def draw(indir):
             break
     print('done')
     with open(f'{indir}/paretographs','w') as outf:
-        outf.write('surface\tn_connected\tn_unconnected\tgraph\n')
-        for s,n,m,g in gres:
+        outf.write('surface\tn_connected\tn_unconnected\tnum_nodes\tnum_edges\tgraph\n')
+        for s,n,m,nn,ne,g in gres:
             trapig = convert_graph(graphs[g])
-            outf.write(f'{s}\t{n}\t{-m}\t{trapig}\n')
+            outf.write(f'{s}\t{n}\t{-m}\t{nn}\t{ne}\t{trapig}\n')
 
 def convert_graph(g):
     """Takes a deserialied networkx graph and turns it into a reasonerapi query string"""
@@ -196,6 +202,6 @@ if __name__ == '__main__':
     parser.add_argument('-i', action='store', dest='input_directory', help='input directory')
     results = parser.parse_args()
     #analyze(results.input_directory)
-    analyze('gene_disease')
-    examine('gene_disease')
+    #analyze('gene_disease')
+    #examine('gene_disease')
     draw('gene_disease')
