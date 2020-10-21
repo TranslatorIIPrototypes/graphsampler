@@ -7,7 +7,10 @@ from collections import defaultdict
 import pandas as pd
 
 def analyze(indir):
-    files = os.listdir(indir)
+    cdir = f'{indir}_connected'
+    udir = f'{indir}_unconnected'
+    files = [ f'{cdir}/{f}' for f in os.listdir(cdir) ]
+    files += [ f'{udir}/{f}' for f in os.listdir(udir) ]
     graphcounts = defaultdict( lambda: defaultdict(set) )
     predcounts = defaultdict( set )
     upairs = set()
