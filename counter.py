@@ -92,21 +92,30 @@ class counter:
         #realcombs = n3 + comb(n2, 2) + n2*n1 + comb(n1,3)
         #print('Number of actual combinations:', realcombs)
         #print(n3,comb(n2,2),n2*n1,comb(n1,3))
-        indy_nodes = group_paths(pathbylength[3],pathbylength[2],pathbylength[1],newnodes,newedges,originals[0],originals[1])
-        print('numbcomb:',len(indy_nodes))
+        #The indy one nodes are just all the 1 node paths
+        indy_1_nodes = pathbylength[1]
+        whyedgemap = {}
+        for x, y, z in newedges:
+            # value is (predicate, direction (True = x->y) )
+            whyedgemap[(x, y)] = (z['predicate'], True)
+            whyedgemap[(y, x)] = (z['predicate'], False)
+        indy_1_nodes = group_by_types_1hops(pathbylength[1], newnodes, whyedgemap, originals[0], originals[1])
+        indy_2_nodes = group_paths_2nodes(pathbylength[2],pathbylength[1],newnodes,newedges,originals[0],originals[1])
+        indy_3_nodes = group_paths_3nodes(pathbylength[3],pathbylength[2],pathbylength[1],newnodes,newedges,originals[0],originals[1])
+        print('numbcomb (3nodes):',len(indy_3_nodes))
         #now these are all the actual, independent sets of 3 nodes that we need to make graphs out of.
-        #numcombs = comb(len(fnodes),querysize)
         edgemap = { (x,y):(x,y,z) for x,y,z in newedges }
         edgemap2 = { (y,x):(x,y,z) for x,y,z in newedges }
         edgemap.update(edgemap2)
-        for a,b,c in indy_nodes:
-            al = [originals[0],a,b,c,originals[1]]
+        indy_nodes = indy_1_nodes + indy_2_nodes + indy_3_nodes
+        for node_tuple in indy_nodes:
+            al = [originals[0]]+list(node_tuple)+[originals[1]]
             dnodes = {n: newnodes[n] for n in al}
             nedges = []
-            for i in range(5):
-                for j in range(i,5):
+            for i in range(len(al)):
+                for j in range(i,len(al)):
                     #Don't include direct edges
-                    if (i == 0) and (j==4):
+                    if (i == 0) and (j==(len(al)-1)):
                         continue
                     xy = (al[i],al[j])
                     if xy in edgemap:
@@ -135,13 +144,75 @@ class counter:
         ba = ','.join([ z['predicate'] for x,y,z in directs if ((x==nodeb) and (y==nodea))])
         self.writer.write_counts(f'{hash}\t{nodea}\t{labela}\t{nodeb}\t{labelb}\t{ab}\t{ba}\n')
 
-def group_paths_1_node(n1,nodes,edge,snode,tnode):
+def group_paths_2nodes(n2, n1, nodes, edges, snode, tnode):
     """
-    Finding all the 1 node paths between start and end is basically already done by the pathfinder
-    """
+    This is a rather grubby version that works on finding all topologies that include 2 nodes.
+    Just iterating over all possible 2 nodes is too much.  So now we have these paths, but even just iterating
+    over all acheivable 2-nodes is too much.  So we want to find 2-nodes that are isomorphic.   So we want to find just
+    a set that are non-isomorphic"""
+    # Group all the 2's
+    # There is a path that goes s-a-b-t
+    # other possible links: s-b, a-t. So there are 4 possible combos
+    # We encode this with a bit-tuple.
+    used = set()
+    with_two_hop = defaultdict(set)
+    for a,b in n2:
+        if frozenset( (a,b) ) in used:
+            continue
+        sb=at=False
+        if (a,) in n1:
+            at = True
+        if (b,) in n1:
+            sb = True
+        topology = (sb, at)
+        with_two_hop[topology].add((a, b))
+        used.add(frozenset((a, b)))
+    # The only other possibility are 2 unattached 1-hops
+    onehops = set()
+    for a,b in combinations(n1,2):
+        s = frozenset((a[0],b[0]))
+        if s not in used:
+            onehops.add(s)
+            used.add(s)
+    edgemap = {}
+    for x, y, z in edges:
+        # value is (predicate, direction (True = x->y) )
+        edgemap[(x, y)] = (z['predicate'], True)
+        edgemap[(y, x)] = (z['predicate'], False)
+    indynodes_2hop = group_by_types_2hop(with_two_hop,nodes,edgemap,snode,tnode)
+    indynodes_1hops = group_by_types_1hops(onehops, nodes, edgemap, snode, tnode)
+    return indynodes_2hop + indynodes_1hops
 
+def group_by_types_2hop(topodict,nodes,edges,snode,tnode):
+    #s - b, a - t
+    e_indexes = [(0,2),(1,3)]
+    grouped = defaultdict( lambda: defaultdict ( lambda: defaultdict(set)))
+    for topology,matches in topodict.items():
+        grouped_by_nodetypes = defaultdict(set)
+        for match in matches:
+            #Each match is an a-b triple. We can first group by types
+            types = tuple( [nodes[m] for m in match ])
+            grouped_by_nodetypes[types].add(match)
+        for nts,ms in grouped_by_nodetypes.items():
+            for m in ms:
+                ns = [snode,m[0],m[1],tnode]
+                etypes = [ edges[(ns[i],ns[i+1])] for i in range(2) ]
+                for e_i,top_i in zip(e_indexes,topology):
+                    #Don't need to pad because the edge existence is our top sort
+                    if not top_i:
+                        continue
+                    etypes.append( edges[(ns[e_i[0]],ns[e_i[1]])] )
+                etuple = tuple(etypes)
+                grouped[topology][nts][etuple].add(m)
+    indy_nodes = []
+    for topology, g2 in grouped.items():
+        for nts, g3 in g2.items():
+            for etuple, g4 in g3.items():
+                (a, b) = next(iter(g4))
+                indy_nodes.append((a, b))
+    return indy_nodes
 
-def group_paths(n3,n2,n1,nodes,edges,snode,tnode):
+def group_paths_3nodes(n3, n2, n1, nodes, edges, snode, tnode):
     """
     This is a rather grubby version that works on finding all topologies that include 3 nodes.
     Just iterating over all possible 3 nodes is too much.  So now we have these paths, but even just iterating
@@ -244,18 +315,15 @@ def group_paths(n3,n2,n1,nodes,edges,snode,tnode):
     indynodes_1hops = group_by_types_1hops(onehops,nodes,edgemap,snode,tnode)
     return indynodes_3hop + indynodes_2hop_s + indynodes_2hop_t + indynodes_1_2hop + indynodes_1hops
 
-def group_by_types_1hops(triphops,nodes,edges,snode,tnode):
-    #This is just a set of (a,b,c) triples, where each is a one-node hop s-(a,b,c)-t.  There's no connections between
-    # a,b,c, so they're 3 independent paths
+def group_by_types_1hops(tuples,nodes,edges,snode,tnode):
+    #if N=3, This is just a set of (a,b,c) triples, where each is a one-node hop s-(a,b,c)-t.  There's no connections between
+    # a,b,c, so they're 3 independent paths.  But, N can be anything (the tuples are of length N)
     groups = defaultdict(set)
-    for a,b,c in triphops:
-        pa = (nodes[a], edges[ (snode,a)], edges[ (a,tnode)])
-        pb = (nodes[b], edges[ (snode,b)], edges[ (b,tnode)])
-        pc = (nodes[c], edges[ (snode,c)], edges[ (c,tnode)])
-        paths = [pa,pb,pc]
+    for nodetuple in tuples:
+        paths = [ (nodes[x], edges[(snode,x)], edges[(x,tnode)]) for x in nodetuple]
         paths.sort()
         pathtuple = tuple(paths)
-        groups[pathtuple].add((a,b,c))
+        groups[pathtuple].add(nodetuple)
     indy_nodes = []
     for _,nset in groups.items():
         indy_nodes.append( next(iter(nset)))
