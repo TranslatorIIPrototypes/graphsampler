@@ -15,7 +15,7 @@ class writer:
         self.graphs_output.write('\n')
         
     def write_counts(self,s):
-        self.counts_output()
+        self.counts_output.write(s)
         
     def __del__(self):
         self.graphs_output.close()
