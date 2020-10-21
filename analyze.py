@@ -196,6 +196,6 @@ if __name__ == '__main__':
     parser.add_argument('-i', action='store', dest='input_directory', help='input directory')
     results = parser.parse_args()
     #analyze(results.input_directory)
-    #analyze('gene_disease')
-    #examine('gene_disease')
+    analyze('gene_disease')
+    examine('gene_disease')
     draw('gene_disease')
