@@ -7,6 +7,11 @@ class neo():
         else:
             self.driver = GraphDatabase.driver(uri, auth=(user,pw))
 
+    def run_query(self,q):
+        with self.driver.session() as session:
+            res = session.read_transaction(rq,q)
+        return res
+
     def get_pairs(self,sourcelabel,targetlabel,maxpairs=0):
         with self.driver.session() as session:
             friends = session.read_transaction(query_pairs, sourcelabel,targetlabel,maxpairs)
@@ -55,6 +60,10 @@ class neo():
             nodes = session.read_transaction(get_interesting_nodes_by_type,type)
         return nodes
 
+def rq(tx,cypher):
+    result = tx.run(cypher)
+    results = [ r['output'] for r in result ]
+    return results
 
 def ex(tx,cypher):
     result = tx.run(cypher)
