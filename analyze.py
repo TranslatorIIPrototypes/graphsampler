@@ -116,12 +116,12 @@ def draw(indir):
                     graphs_hashes.add(g)
     gres.sort()
     #Have to dig through everything to find these bozos
-    files = os.listdir(indir)
+    files = os.listdir(f'{indir}_connected')
     graphs = {}
     for f in files:
         if f.startswith('connected') and f.endswith('graphs'):
             print(f)
-            with open(f'{indir}/{f}','r') as inf:
+            with open(f'{indir}_connected/{f}','r') as inf:
                 for line in inf:
                     x = json.loads(line.strip())
                     h = x['graph']['hash']
