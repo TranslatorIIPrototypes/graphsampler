@@ -71,7 +71,7 @@ def build_stoch_nodes(atype,btype,connected,npairs,outprefix):
         for pcount in range(npairs):
             a = random.choice(ak)
             b = random.choice(bk)
-            nodes,edges = n.get_neighborhood_and_directs((a,b),atype,btype,crummy_nodes,degree=1)
+            nodes,edges = n.get_neighborhood_and_directs((a,b),atype,btype,crummy_nodes,degree=2)
             c.count((a,b),nodes,edges)
     else:
         #get all the pairs, even if we don't want to run them all
@@ -80,7 +80,7 @@ def build_stoch_nodes(atype,btype,connected,npairs,outprefix):
         ndone = 0
         print('npairs:',len(allpairs))
         for ab in allpairs:
-            nodes, edges = n.get_neighborhood_and_directs(ab, atype, btype, crummy_nodes, degree=1)
+            nodes, edges = n.get_neighborhood_and_directs(ab, atype, btype, crummy_nodes, degree=2)
             c.count(ab, nodes, edges)
             ndone += 1
             if ndone >= npairs:
