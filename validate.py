@@ -16,6 +16,10 @@ def validate_all(start_type,end_type):
     all_connected=[]
     all_starts  = n.get_interesting_nodes_by_type(start_type)
     pairs = n.get_pairs(start_type,end_type)
+    with open(f'{indir}/allconnected','w') as outf:
+        for x,y in pairs:
+            outf.write(f'{x}\t{y}\n')
+    exit()
     all_connected = defaultdict(set)
     for x,y in pairs:
         all_connected[x].add(y)
