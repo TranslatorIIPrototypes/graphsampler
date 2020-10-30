@@ -21,7 +21,6 @@ def validate_all(start_type,end_type):
         all_connected[x].add(y)
     for index,row in df.iterrows():
         validate_one(index,row['graph'],start_type,end_type,all_starts,all_connected,n)
-        exit()
 
 def validate_one(rowindex,s_trapi,start_type,end_type,all_starts,all_connected,neo_i):
     trapi = json.loads(s_trapi)
