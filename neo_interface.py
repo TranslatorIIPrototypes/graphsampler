@@ -141,7 +141,7 @@ def get_edges(tx, nodeset, originals ):
     return results
 
 def picklabel(labellist):
-    for leaf in ['gene','chemical_substance','disease','phenotypic_feature','cell','cellular_component','biological_process','molecular_activity','organism_taxon','sequence_variant','gene_family','environmental_feature']:
+    for leaf in ['gene','chemical_substance','disease','phenotypic_feature','cell','cellular_component','biological_process','molecular_activity','organism_taxon','sequence_variant','gene_family','environmental_feature','population_of_individual_organisms']:
         if leaf in labellist:
             return leaf
     for leaf in ['anatomical_entity']:
