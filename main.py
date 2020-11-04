@@ -3,6 +3,7 @@ import argparse
 import random
 import json
 from neo_interface import neo
+from redis_interface import redisinterface
 from counter import counter,writer
 
 crummy_nodes = set([
@@ -55,9 +56,11 @@ def build_stoch_nodes(atype,btype,connected,npairs,outprefix):
     with open('conn.json','r') as inf:
         conn_data = json.load(inf)
     n = neo(conn_data['neouri'],conn_data['neouser'],conn_data['neopass'])
+    r = redisinterface(conn_data['redisuri'],conn_data['redisport'])
     w = writer(outprefix)
     c = counter(w)
     if not connected:
+        print('not connected')
         a_nodes = n.get_interesting_nodes_by_type(atype)
         filternodes(a_nodes)
         if atype == btype:
@@ -71,7 +74,8 @@ def build_stoch_nodes(atype,btype,connected,npairs,outprefix):
         for pcount in range(npairs):
             a = random.choice(ak)
             b = random.choice(bk)
-            nodes,edges = n.get_neighborhood_and_directs((a,b),atype,btype,crummy_nodes,degree=2)
+            print(a,b)
+            nodes,edges = r.get_neighborhood_and_directs((a,b),atype,btype,crummy_nodes)
             c.count((a,b),nodes,edges)
     else:
         #get all the pairs, even if we don't want to run them all
@@ -80,7 +84,7 @@ def build_stoch_nodes(atype,btype,connected,npairs,outprefix):
         ndone = 0
         print('npairs:',len(allpairs))
         for ab in allpairs:
-            nodes, edges = n.get_neighborhood_and_directs(ab, atype, btype, crummy_nodes, degree=2)
+            nodes, edges = r.get_neighborhood_and_directs(ab, atype, btype, crummy_nodes)
             c.count(ab, nodes, edges)
             ndone += 1
             if ndone >= npairs:
@@ -92,6 +96,7 @@ def filternodes(in_nodes):
             in_nodes.pop(c)
 
 if __name__ == '__main__':
+    build_stoch_nodes('gene', 'disease', True, 100, 'gene_disease')
     parser = argparse.ArgumentParser()
     parser.add_argument('-a', action='store', dest='a_type',
                         help='Node Type A')
