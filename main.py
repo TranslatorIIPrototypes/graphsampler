@@ -97,7 +97,6 @@ def filternodes(in_nodes):
             in_nodes.pop(c)
 
 if __name__ == '__main__':
-    build_stoch_nodes('gene', 'disease', True, 100, 'gene_disease')
     parser = argparse.ArgumentParser()
     parser.add_argument('-a', action='store', dest='a_type',
                         help='Node Type A')

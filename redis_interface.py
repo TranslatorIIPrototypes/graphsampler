@@ -23,7 +23,7 @@ class redisinterface():
         nodes2edgesb = self.get_neighbors([b_id],badnodes)
         if (len(nodes2edgesa) == 0) or (len(nodes2edgesb) == 0):
             print("no neighbors",a_id,b_id)
-            return {},[]
+            return {a_id:a_label, b_id:b_label},[]
         all_one_nodes = set([a_id,b_id])
         internal_edges = []
         add_nodes_and_edges(all_one_nodes,internal_edges,nodes2edgesa)
@@ -55,7 +55,7 @@ class redisinterface():
             for ni in grouper(pipelength, node_identifiers):
                 for hub in ni:
                     pipe.get(hub)
-                results = pipe.execute()
+                results += pipe.execute()
         neighbors_and_edges = {}
         for n,x in zip(node_identifiers,results):
             neighbors_and_edges.update(convert(x,n,bad_neighbors) )
@@ -101,17 +101,18 @@ def add_nodes_and_edges(outnodes,outedges,nodes2edges):
         outedges += edges
 
 def convert(x,query_node,crap):
-    #s = x.decode('ASCII')
-    redges = json.loads(x)
     nodes2edges = defaultdict(list)
-    for t in redges:
-        node = t[0]
-        if node in crap:
-            continue
-        pred = t[1]
-        forward = t[2]
-        if forward:
-            nodes2edges[node].append( (query_node,node,{'predicate':pred}) )
-        else:
-            nodes2edges[node].append( (node,query_node,{'predicate':pred}) )
+    if x is not None:
+        redges = json.loads(x)
+        for t in redges:
+            node = t[0]
+            if node in crap:
+                continue
+            pred = t[1]
+            if pred not in ['subclass_of','expresses','in_taxon']:
+                forward = t[2]
+                if forward:
+                    nodes2edges[node].append( (query_node,node,{'predicate':pred}) )
+                else:
+                    nodes2edges[node].append( (node,query_node,{'predicate':pred}) )
     return nodes2edges
