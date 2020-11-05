@@ -78,6 +78,7 @@ def build_stoch_nodes(atype,btype,connected,npairs,outprefix):
             nodes,edges = r.get_neighborhood_and_directs((a,b),atype,btype,crummy_nodes)
             c.count((a,b),nodes,edges)
     else:
+        nodes, edges = r.get_neighborhood_and_directs(['NCBIGene:84818','MONDO:0005150'], atype, btype, crummy_nodes)
         #get all the pairs, even if we don't want to run them all
         allpairs = n.get_pairs(atype,btype)
         random.shuffle(allpairs)
