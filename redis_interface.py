@@ -38,6 +38,7 @@ class redisinterface():
         parse_2_neighbors(neighbors2_b, neighbors2_a, all_one_nodes, all_two_nodes, internal_edges)
         print(len(all_one_nodes),len(all_two_nodes),a_id in all_one_nodes,b_id in all_one_nodes)
         nodetypes = self.get_nodetypes(all_one_nodes.union(all_two_nodes))
+        internal_edges = add_symmetric(internal_edges)
         return nodetypes,internal_edges
 
     def get_nodetypes(self,nodes):
@@ -61,6 +62,16 @@ class redisinterface():
             neighbors_and_edges.update(convert(x,n,bad_neighbors) )
         return neighbors_and_edges
 
+
+def add_symmetric(internal_edges):
+    new_edges = []
+    for x,y,z in internal_edges:
+        p = z['predicate']
+        if p in ['related_to','interacts_with','molecularly_interacts_with']:
+            new_edges.append( (y,x,z) )
+    internal_edges += new_edges
+    return internal_edges
+
 def grouper(n, iterable):
     it = iter(iterable)
     while True:
@@ -70,7 +81,9 @@ def grouper(n, iterable):
        yield chunk
 
 def picklabel(labellist):
-    for leaf in ['gene','chemical_substance','disease','phenotypic_feature','cell','cellular_component','biological_process','molecular_activity','organism_taxon','sequence_variant','gene_family','environmental_feature','population_of_individual_organisms']:
+    #for leaf in ['gene','chemical_substance','disease','phenotypic_feature','cell','cellular_component','biological_process','molecular_activity','organism_taxon','sequence_variant','gene_family','environmental_feature','population_of_individual_organisms']:
+    #let's go with the union disease/phenotype
+    for leaf in ['gene', 'chemical_substance', 'disease_or_phenotypic_feature', 'cell', 'cellular_component', 'biological_process', 'molecular_activity', 'organism_taxon', 'sequence_variant', 'gene_family', 'environmental_feature', 'population_of_individual_organisms']:
         if leaf in labellist:
             return leaf
     for leaf in ['anatomical_entity']:
@@ -106,6 +119,9 @@ def convert(x,query_node,crap):
         redges = json.loads(x)
         for t in redges:
             node = t[0]
+            # I don't want any self loops.  They're just not very meaningful in this context.
+            if node == query_node:
+                continue
             if node in crap:
                 continue
             pred = t[1]
