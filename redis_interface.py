@@ -109,9 +109,10 @@ def convert(x,query_node,crap):
             if node in crap:
                 continue
             pred = t[1]
-            forward = t[2]
-            if forward:
-                nodes2edges[node].append( (query_node,node,{'predicate':pred}) )
-            else:
-                nodes2edges[node].append( (node,query_node,{'predicate':pred}) )
+            if pred not in ['subclass_of','expresses','in_taxon']:
+                forward = t[2]
+                if forward:
+                    nodes2edges[node].append( (query_node,node,{'predicate':pred}) )
+                else:
+                    nodes2edges[node].append( (node,query_node,{'predicate':pred}) )
     return nodes2edges

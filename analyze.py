@@ -81,12 +81,15 @@ def examine(indir):
         gc[k][(nn,ne)].append(g)
     points = npy.array(list(gc.keys()))
     surfaces = {}
-    for ps in range(20):
+    #for ps in range(20):
+    ps = 0
+    while len(points) > 0:
         eps= is_pareto_efficient(points,return_mask = False)
         #surfaces.append( set([ frozenset(points[ep]) for ep in eps]) )
         for ep in eps:
             surfaces[ (frozenset(points[ep])) ] = ps+1
         points = npy.delete(points, eps, axis=0)
+        ps += 1
     with open(f'{indir}/pareto.txt','w') as outf:
         outf.write('n_connected\tn_unconnected\tnum_nodes\tnum_edges\tgraphs\tPareto\n')
         for p,parts in gc.items():
