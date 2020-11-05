@@ -55,7 +55,7 @@ class redisinterface():
             for ni in grouper(pipelength, node_identifiers):
                 for hub in ni:
                     pipe.get(hub)
-                results = pipe.execute()
+                results += pipe.execute()
         neighbors_and_edges = {}
         for n,x in zip(node_identifiers,results):
             neighbors_and_edges.update(convert(x,n,bad_neighbors) )
