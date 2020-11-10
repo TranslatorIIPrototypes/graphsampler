@@ -94,11 +94,12 @@ def examine(indir):
         outf.write('n_connected\tn_unconnected\tnum_nodes\tnum_edges\tgraphs\tPareto\n')
         for p,parts in gc.items():
             for (nn,ne),gs in parts.items():
-                outf.write(f'{p[0]}\t{p[1]}\t{nn}\t{ne}\t{gs}\t')
-                if frozenset(p) in surfaces:
-                    outf.write(f'{surfaces[frozenset(p)]}\n')
-                else:
-                    outf.write('0\n')
+                for g in gs:
+                    outf.write(f'{p[0]}\t{p[1]}\t{nn}\t{ne}\t{g}\t')
+                    if frozenset(p) in surfaces:
+                        outf.write(f'{surfaces[frozenset(p)]}\n')
+                    else:
+                        outf.write('0\n')
 
 def draw(indir):
     graphs_hashes = set()
@@ -113,10 +114,11 @@ def draw(indir):
                 nu = int(x[1])
                 numnodes=int(x[2])
                 numedges=int(x[3])
-                gs = ast.literal_eval(x[4])
-                for g in gs:
-                    gres.append( (surface,nc,nu,numnodes,numedges,g) )
-                    graphs_hashes.add(g)
+                g = x[4]
+                #gs = ast.literal_eval(x[4])
+                #for g in gs:
+                gres.append( (surface,nc,nu,numnodes,numedges,g) )
+                graphs_hashes.add(g)
     gres.sort()
     #Have to dig through everything to find these bozos
     files = os.listdir(f'{indir}_connected')
@@ -140,10 +142,14 @@ def draw(indir):
             break
     print('done')
     with open(f'{indir}/paretographs','w') as outf:
-        outf.write('surface\tn_connected\tn_unconnected\tnum_nodes\tnum_edges\tgraph\n')
+        outf.write('surface\tn_connected\tn_unconnected\tnum_nodes\tnum_edges\tgraphid\tgraph\n')
         for s,n,m,nn,ne,g in gres:
-            trapig = convert_graph(graphs[g])
-            outf.write(f'{s}\t{n}\t{-m}\t{nn}\t{ne}\t{trapig}\n')
+            try:
+                trapig = convert_graph(graphs[g])
+                outf.write(f'{s}\t{n}\t{-m}\t{nn}\t{ne}\t{g}\t{trapig}\n')
+            except KeyError:
+                #this can happen if the graph is only in the unconnected list. Not worried about those ones
+                print(g)
 
 def convert_graph(g):
     """Takes a deserialied networkx graph and turns it into a reasonerapi query string"""
