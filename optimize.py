@@ -34,6 +34,7 @@ def read_data(indir):
                         misses[graph].add(nids)
                     else:
                         hits[graph].add(nids)
+    print('Read the data',len(hits)) 
     return hits,misses
 
 class MultiObjectiveKnapsack(Problem):
@@ -59,6 +60,7 @@ class SubsetSelector(Problem):
         super().__init__(n_var=len(self.hitgraphs), n_obj=3, n_constr=0, xl=0, xu=1, type_var=np.bool)
 
     def _evaluate(self, x, out, *args, **kwargs):
+        print('evaluate')
         #There are 3 outputs:
         # 1. negative of the number of unique pairs hit by these queries
         # 2. number of unique miss pairs for these queries
@@ -76,13 +78,15 @@ class SubsetSelector(Problem):
         out["F"] = np.column_stack([-len(qhits), len(qmisses), numq])
 
 algorithm = NSGA2(
-    pop_size=200,
+    pop_size=20,
     #n_offsprings=10,
     sampling=get_sampling("bin_random"),
     crossover=get_crossover("bin_hux"),
     mutation=get_mutation("bin_bitflip"),
     eliminate_duplicates=True
 )
+
+print('Here you go')
 
 res = minimize(SubsetSelector('gene','disease'),
                algorithm,
