@@ -14,7 +14,7 @@ import dask
 import dask.distributed
 
 from dask_jobqueue import SLURMCluster
-from dask.distributed import Client
+from dask.distributed import Client,get_worker
 
 import sys
 
@@ -98,7 +98,7 @@ class SparseBitflipMutation(Mutation):
         if self.base is None:
             self.base = 1.0
         _X = np.full(X.shape, np.inf)
-        maxbits = 10
+        maxbits = 20
         for i in range(X.shape[0]):
             #_X[i, :] = X[i, :]
             is_true = X[i, :]
@@ -139,10 +139,21 @@ class SubsetSelector(Problem):
         # 2. number of unique miss pairs for these queries
         # 3. Number of queries
         # These will be simultaneously minimized (why 1 is negatived)
-        def fun(individual,hits,misses):
-            hitgraphs = list(hits.keys())
-            hitgraphs.sort()
+        def fun(individual):
             logger=logging.getLogger('distributed.worker')
+            worker = get_worker()
+            try:
+                hits = worker.hits
+                misses = worker.misses
+                hitgraphs = worker.hitgraphs
+            except AttributeError:
+                producer = DataProducer()
+                hits,misses = producer.get_data(logger)
+                hitgraphs = list(hits.keys())
+                hitgraphs.sort()
+                worker.hits = hits
+                worker.misses = misses
+                worker.hitgraphs = hitgraphs
             logger.info("Evaluating 1")
             start = dt.now()
             ongraphs = [hitgraphs[bitcount] for bitcount,bit in enumerate(individual) if bit ]
@@ -157,7 +168,7 @@ class SubsetSelector(Problem):
             end = dt.now()
             logger.info(f'Took {end-start}')
             return [-len(qhits),len(qmisses),numq]
-        jobs = [self.client.submit(fun, individual, self.hits_f, self.misses_f) for individual in x]
+        jobs = [self.client.submit(fun, individual) for individual in x]
         out["F"] = np.row_stack([job.result() for job in jobs])
 
     def single_evaluate(self, individual, out, *args, **kwargs):
@@ -176,8 +187,8 @@ class SubsetSelector(Problem):
         out["F"] = [-len(qhits),len(qmisses),numq]
 
 algorithm = NSGA2(
-    pop_size=200,
-    n_offsprings=200,
+    pop_size=500,
+    n_offsprings=500,
     sampling=VariableBinarySampling(5),
     crossover=get_crossover("bin_hux"),
     mutation=SparseBitflipMutation(1),
@@ -186,7 +197,7 @@ algorithm = NSGA2(
 
 #To get around timeouts for scattering data
 dask.config.set({"distributed.comm.timeouts.tcp":"120s"})
-n_workers=20
+n_workers=50
 cluster = SLURMCluster(cores=1,memory="48GB",walltime="24:00:00")
 cluster.scale(n_workers)
 client = Client(cluster)
@@ -209,17 +220,17 @@ print('have workers')
 #another annoying thing is that you can say 
 #hits_future = client.scatter(hits,broadcast)
 #but in that case, hits_future is not infact a future.  Why? No idea.  Docs do not help.
-print('scatter')
-[hits_future,misses_future] = client.scatter([hits,misses],broadcast=True)
-print('scattered')
+#print('scatter')
+#[hits_future,misses_future] = client.scatter([hits,misses],broadcast=True)
+#print('scattered')
 
 n_vars = len(hitgraphs)
 
 print('And begin')
 
-res = minimize(SubsetSelector(client,hits_future,misses_future,n_vars),
+res = minimize(SubsetSelector(client,None,None,n_vars),
                algorithm,
-               ('n_gen', 200),
+               ('n_gen', 300),
                verbose=True)
 
 print('Time:', res.exec_time)
