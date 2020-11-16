@@ -1,6 +1,7 @@
 import argparse
 import ast
 import os
+import math
 import json
 import numpy as npy
 from collections import defaultdict
@@ -209,12 +210,49 @@ def is_pareto_efficient(costs, return_mask = True):
     else:
         return is_efficient
 
+def optimal_per_pair(indir):
+    """We have a bunch of connected ones. For each connected pair, what's the best (most specific) query we could have used?
+    The question here is - are there pairs that just require an unspecific query to get them?  That's what is suggested
+    by the GA optimizer"""
+    with open(f'{indir}/aggregated.json','r') as inf:
+        r = json.load(inf)
+    gc = {}
+    for g in r:
+        n_none = 0
+        n_some = 0
+        for p,np in r[g]['predicates'].items():
+            if p == 'none':
+                n_none += np
+            else:
+                n_some += np
+        f = n_some / (n_some + n_none)
+        k = {'some':n_some,'none':n_none, 'precision':f}
+        gc[g] = k
+    cdir = f'{indir}_connected'
+    files = [f'{cdir}/{f}' for f in os.listdir(cdir)]
+    best_precision = defaultdict(float)
+    best_none = defaultdict(lambda : 1000000)
+    for f in files:
+        if f.endswith('counts'):
+            with open(f) as inf:
+                for line in inf:
+                    x = line[:-1].split('\t')
+                    graph = x[0]
+                    pair=(x[1],x[3])
+                    best_precision[pair] = max( [best_precision[pair], gc[graph]['precision']])
+                    best_none[pair] = min( [best_none[pair], gc[graph]['none']])
+    with open(f'{indir}/best.txt','w') as outf:
+        outf.write('pair\tBestPrecision\tLeastMisses\n')
+        for p in best_precision:
+            outf.write(f'{p}\t{best_precision[p]}\t{best_none[p]}\n')
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-i', action='store', dest='input_directory', help='input directory')
     results = parser.parse_args()
     #analyze(results.input_directory)
-    analyze('gene_disease')
-    examine('gene_disease')
-    draw('gene_disease')
+    #analyze('gene_disease')
+    #examine('gene_disease')
+    #draw('gene_disease')
+    optimal_per_pair('gene_disease')
