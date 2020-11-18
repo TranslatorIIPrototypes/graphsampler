@@ -6,6 +6,8 @@ import json
 import numpy as npy
 from collections import defaultdict
 import pandas as pd
+import networkx
+from networkx.readwrite import json_graph
 
 def analyze(indir):
     cdir = f'{indir}_connected'
@@ -183,7 +185,6 @@ def convert_graph(g):
     return  json.dumps(tg)
 
 
-
 #Adapted from: https://stackoverflow.com/questions/32791911/fast-calculation-of-pareto-front-in-python
 def is_pareto_efficient(costs, return_mask = True):
     """
@@ -248,6 +249,45 @@ def optimal_per_pair(indir):
         for p in best_precision:
             outf.write(f'{p}\t{best_precision[p]}\t{best_none[p]}\n')
 
+def depredicate(indir,outdir):
+    for connection in ['connected','unconnected']:
+        idir = f'{indir}_{connection}'
+        odir = f'{outdir}_{connection}'
+        files = [ f'{idir}/{f}' for f in os.listdir(idir) ]
+        outgraph_hashes = set()
+        if not os.path.exists(odir):
+            os.mkdir(odir)
+        with open(f'{odir}/all.graphs','w') as outgraphs:
+            hash_to_hash = {} #dictionary tracking hashes with predicates to those without predicates
+            for f in files:
+                if f.endswith('graphs'):
+                    with open(f, 'r') as inf:
+                        for line in inf:
+                            x = json.loads(line.strip())
+                            input_hash = x['graph']['hash']
+                            if input_hash not in hash_to_hash:
+                                nxg = json_graph.node_link_graph(x)
+                                #Take the predicates off
+                                for (n1, n2, d) in nxg.edges(data=True):
+                                    d.clear()
+                                outg = nxg.to_undirected()
+                                del outg.graph['hash']
+                                output_hash = networkx.weisfeiler_lehman_graph_hash(outg, node_attr='label', iterations=3, digest_size=16)
+                                hash_to_hash[input_hash] = output_hash
+                                if not output_hash in outgraph_hashes:
+                                    outgraph_hashes.add(output_hash)
+                                    outg.graph['hash'] = output_hash
+                                    outgraphs.write(json.dumps(networkx.json_graph.node_link_data(outg)))
+                                    outgraphs.write('\n')
+        with open(f'{odir}/all.counts', 'w') as outcounts:
+            for f in files:
+                if f.endswith('counts'):
+                    with open(f, 'r') as inf:
+                        for line in inf:
+                            x = line.split('\t')
+                            newhash = hash_to_hash[x[0]]
+                            x[0] = newhash
+                            outcounts.write('\t'.join(x))
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -257,4 +297,5 @@ if __name__ == '__main__':
     #analyze('gene_disease')
     #examine('gene_disease')
     #draw('gene_disease')
-    optimal_per_pair('gene_disease')
+    #optimal_per_pair('gene_disease')
+    depredicate('gene_disease','gene_disease_nopreds')
