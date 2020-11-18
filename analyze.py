@@ -239,6 +239,8 @@ def optimal_per_pair(indir):
                     x = line[:-1].split('\t')
                     graph = x[0]
                     pair=(x[1],x[3])
+                    if gc[graph]['some'] <= 5:
+                        continue
                     best_precision[pair] = max( [best_precision[pair], gc[graph]['precision']])
                     best_none[pair] = min( [best_none[pair], gc[graph]['none']])
     with open(f'{indir}/best.txt','w') as outf:
