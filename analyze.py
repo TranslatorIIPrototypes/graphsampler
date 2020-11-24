@@ -248,6 +248,8 @@ def optimal_per_pair(indir):
                     x = line[:-1].split('\t')
                     graph = x[0]
                     pair=(x[1],x[3])
+                    if gc[graph]['some'] <= 5:
+                        continue
                     best_precision[pair] = max( [best_precision[pair], gc[graph]['precision']])
                     best_none[pair] = min( [best_none[pair], gc[graph]['none']])
     with open(f'{indir}/best.txt','w') as outf:
@@ -256,7 +258,9 @@ def optimal_per_pair(indir):
             outf.write(f'{p}\t{best_precision[p]}\t{best_none[p]}\n')
 
 def depredicate(indir,outdir):
+    hash_to_hash = {} #dictionary tracking hashes with predicates to those without predicates
     for connection in ['connected','unconnected']:
+        print(connection)
         idir = f'{indir}_{connection}'
         odir = f'{outdir}_{connection}'
         files = [ f'{idir}/{f}' for f in os.listdir(idir) ]
@@ -264,7 +268,6 @@ def depredicate(indir,outdir):
         if not os.path.exists(odir):
             os.mkdir(odir)
         with open(f'{odir}/all.graphs','w') as outgraphs:
-            hash_to_hash = {} #dictionary tracking hashes with predicates to those without predicates
             for f in files:
                 if f.endswith('graphs'):
                     with open(f, 'r') as inf:
@@ -285,15 +288,30 @@ def depredicate(indir,outdir):
                                     outg.graph['hash'] = output_hash
                                     outgraphs.write(json.dumps(networkx.json_graph.node_link_data(outg)))
                                     outgraphs.write('\n')
+    for connection in ['connected','unconnected']:
+        print(connection)
+        idir = f'{indir}_{connection}'
+        odir = f'{outdir}_{connection}'
+        files = [ f'{idir}/{f}' for f in os.listdir(idir) ]
+        nf = 0
+        nl = 0
+        nw = 0
         with open(f'{odir}/all.counts', 'w') as outcounts:
             for f in files:
                 if f.endswith('counts'):
+                    nf += 1
                     with open(f, 'r') as inf:
                         for line in inf:
+                            nl += 1
                             x = line.split('\t')
+                            if x[0] not in hash_to_hash:
+                                print(x[0])
+                                continue
                             newhash = hash_to_hash[x[0]]
                             x[0] = newhash
                             outcounts.write('\t'.join(x))
+                            nw += 1
+        print(f'Read {nl} lines from {nf} files and wrote {nw}')
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
