@@ -123,12 +123,12 @@ def draw(indir):
                 gres.append( (surface,nc,nu,numnodes,numedges,g) )
                 graphs_hashes.add(g)
     gres.sort()
+    print('3cbdfa235383d55ca4b36f61831202fa' in graphs_hashes)
     #Have to dig through everything to find these bozos
     files = os.listdir(f'{indir}_connected')
     graphs = {}
     for f in files:
-        if f.startswith('connected') and f.endswith('graphs'):
-            print(f)
+        if f.endswith('graphs'):
             with open(f'{indir}_connected/{f}','r') as inf:
                 for line in inf:
                     x = json.loads(line.strip())
@@ -144,15 +144,22 @@ def draw(indir):
         if len(graphs_hashes) == 0:
             break
     print('done')
+    nmiss = 0
+    nhit = 0
+    print('3cbdfa235383d55ca4b36f61831202fa' in graphs)
     with open(f'{indir}/paretographs','w') as outf:
         outf.write('surface\tn_connected\tn_unconnected\tnum_nodes\tnum_edges\tgraphid\tgraph\n')
         for s,n,m,nn,ne,g in gres:
             try:
-                trapig = convert_graph(graphs[g])
+                graphstring=graphs[g]
+                trapig = convert_graph(graphstring)
                 outf.write(f'{s}\t{n}\t{-m}\t{nn}\t{ne}\t{g}\t{trapig}\n')
+                nhit += 1
             except KeyError:
                 #this can happen if the graph is only in the unconnected list. Not worried about those ones
                 print(g)
+                nmiss += 1
+    print(nhit,nmiss)
 
 def convert_graph(g):
     """Takes a deserialied networkx graph and turns it into a reasonerapi query string"""
@@ -180,7 +187,8 @@ def convert_graph(g):
         tedge = {'id': f'edge_{edgecount}'}
         tedge['source_id'] = nodemap[edge['source']]
         tedge['target_id'] = nodemap[edge['target']]
-        tedge['type'] = edge['predicate']
+        if 'predicate' in edge:
+            tedge['type'] = edge['predicate']
         tg['edges'].append(tedge)
     return  json.dumps(tg)
 
@@ -292,8 +300,8 @@ if __name__ == '__main__':
     parser.add_argument('-i', action='store', dest='input_directory', help='input directory')
     results = parser.parse_args()
     #analyze(results.input_directory)
-    #analyze('gene_disease')
-    #examine('gene_disease')
-    #draw('gene_disease')
+    #analyze('gene_disease_nopreds')
+    #examine('gene_disease_nopreds')
+    draw('gene_disease_nopreds')
     #optimal_per_pair('gene_disease')
-    depredicate('gene_disease','gene_disease_nopreds')
+    #depredicate('gene_disease','gene_disease_nopreds')
