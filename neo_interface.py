@@ -31,18 +31,31 @@ class neo():
         return nodes,edges
 
     def get_neighborhood_and_directs(self,nodeids,a_label,b_label,badnodes,degree=1):
+        print(nodeids)
+        if degree > 2:
+            print("We're not ready for that!")
+            exit()
         nodes = {}
         a_id = nodeids[0]
         b_id = nodeids[1]
         with self.driver.session() as session:
             #First collect all the nodes that are involved in paths between a and b (up to length degree).
             for xid,xlabel in [(a_id,a_label),(b_id,b_label)]:
-                newnodes = session.read_transaction(get_node_neighborhood,xid,xlabel,degree)
+                #We're limiting to degree here.
+                newnodes = session.read_transaction(get_node_neighborhood,xid,xlabel,1)
                 for nid,nlabel in newnodes:
                     if nid not in badnodes:
                         nodes[nid] = nlabel
+                print('nodes',len(nodes))
+            if degree == 2:
+                newnodes = session.read_transaction(get_joiners,a_id,a_label,b_id,b_label)
+                for nid,nlabel in newnodes:
+                    if nid not in badnodes:
+                        nodes[nid] = nlabel
+            print('Nodes',len(nodes))
             #Now get all the edges connecting all these nodes
             edges = session.read_transaction(get_edges,nodes.keys(),nodeids)
+            print('Edges',len(edges))
         return nodes,edges
 
     def execute_counter(self,cypher):
@@ -124,6 +137,14 @@ def get_node_neighborhood(tx, source_id, source_label, nh):
     q = f'match p = (a:{source_label} {{id:"{source_id}"}})-[*0..{nh}]-(n) where none(rel in relationships(p) WHERE type(rel) = "subclass_of") with nodes(p) as ns unwind ns as n RETURN distinct n.id, labels(n)'
     result = tx.run(q)
     node_ids = [ (r['n.id'],picklabel(r['labels(n)'])) for r in result ]
+    return node_ids
+
+def get_joiners(tx, source_id, source_label, target_id, target_label):
+    q = f'match (a:{source_label} {{id:"{source_id}"}})-[w]-(n0)-[x]-(n1)-[y]-(n2)-[z]-(b:{target_label} {{id:"{target_id}"}}) where '  \
+        + f' type(w) <> "subclass_of" and type(x) <> "subclass_of" and type(y) <> "subclass_of" and type(z) <> "subclass_of" ' \
+        + f' and not (a)--(n1) and not (b)--(n1) return distinct n1.id, labels(n1)'
+    result = tx.run(q)
+    node_ids = [ (r['n1.id'],picklabel(r['labels(n1)'])) for r in result ]
     return node_ids
 
 def get_edges(tx, nodeset, originals ):
